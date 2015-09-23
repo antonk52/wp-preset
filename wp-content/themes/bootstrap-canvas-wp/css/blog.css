@@ -1,0 +1,236 @@
+/*
+ * Globals
+ */
+
+body {
+  word-wrap: break-word;
+  font-family: georgia, serif !important;
+  color: #555;
+}
+
+h1, 
+.h1,
+h2, 
+.h2,
+h3, 
+.h3,
+h4, 
+.h4,
+h5, 
+.h5,
+h6, 
+.h6 {
+  margin-top: 0;
+  font-family: arial, helvetica, sans-serif !important;
+  font-weight: normal;
+  color: #333 !important;
+}
+
+
+/*
+ * Override Bootstrap's default container.
+ */
+
+@media (min-width: 1200px) {
+  .container {
+    width: 970px !important;
+  }
+}
+
+
+/*
+ * Masthead for nav
+ */
+
+.blog-masthead {
+  background-color: #428bca;
+  -webkit-box-shadow: inset 0 -2px 5px rgba(0,0,0,.1);
+          box-shadow: inset 0 -2px 5px rgba(0,0,0,.1);
+}
+
+/* Nav links */
+.blog-nav-item {
+  position: relative;
+  display: inline-block;
+  padding: 10px;
+  font-weight: 500;
+  color: #cdddeb;
+}
+.blog-nav-item:hover,
+.blog-nav-item:focus {
+  color: #fff;
+  text-decoration: none;
+}
+
+/* Active state gets a caret at the bottom */
+.blog-nav .active {
+  color: #fff;
+}
+.blog-nav .active:after {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 0;
+  margin-left: -5px;
+  vertical-align: middle;
+  content: " ";
+  border-right: 5px solid transparent;
+  border-bottom: 5px solid;
+  border-left: 5px solid transparent;
+}
+
+
+/*
+ * Blog name and description
+ */
+
+.blog-header {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+.blog-title {
+  margin-top: 30px;
+  margin-bottom: 0;
+  font-size: 60px;
+  font-weight: normal;
+}
+.blog-description {
+  font-size: 20px;
+  color: #333;
+}
+
+
+/*
+ * Main column and sidebar layout
+ */
+
+.blog-main,
+.blog-main-left {
+  float: left !important;
+  font-size: 18px;
+  line-height: 1.5;
+}
+.blog-main-right {
+  float: right !important;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* Sidebar modules for boxing content */
+.blog-sidebar-left {
+  float: left !important;
+  margin-right: 8.33333333% !important;
+  margin-left: 0 !important;
+}
+.blog-sidebar,
+.blog-sidebar-right {
+  float: right !important;
+  margin-left: 8.33333333% !important;
+  margin-right: 0 !important;
+}
+@media screen and (max-width: 767px) {
+  .blog-sidebar-left,
+  .blog-sidebar,
+  .blog-sidebar-right {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+	width: 100%;
+  }
+}
+.sidebar-module {
+  padding: 15px;
+  margin: 0 -15px 15px;
+}
+
+
+/* Pagination */
+.pager {
+  margin-bottom: 55px !important;
+  padding: 0 !important;
+  text-align: inherit !important;
+}
+.blog-post .pager {
+  margin-bottom: 20px;
+}
+.pager > li > a {
+  min-width: 140px;
+  width: auto;
+  max-width: 100%;
+  margin: 0 4px 5px 0 !important;
+  padding: 10px 20px !important;
+  text-align: center;
+  border-radius: 30px !important;
+}
+nav > .pager > li > a {
+    margin: 0 0 5px 0;
+}
+
+
+/*
+ * Blog posts
+ */
+
+.blog-post {
+  margin-bottom: 60px;
+}
+.blog-post-title {
+  margin-bottom: 5px;
+  font-size: 40px;
+}
+.blog-post-meta {
+  margin-bottom: 20px;
+  color: #999;
+}
+.blog-post-meta:nth-child(n+3) {
+  margin-bottom: 10px;
+}
+
+
+/*
+ * Comment posts
+ */
+
+.comment-meta {
+  margin-bottom: 10px;
+  color: #999;
+}
+
+
+/*
+ * Footer
+ */
+
+.blog-footer {
+  padding: 40px 0;
+  color: #999;
+  text-align: center;
+  background-color: #f9f9f9;
+  border-top: 1px solid #e5e5e5;
+}
+.blog-footer a {
+  color: #428bca;
+}
+.blog-footer a:hover, .blog-footer a:focus {
+    color: #23527c;
+    text-decoration: underline;
+}
+.blog-footer p:last-child {
+  margin-bottom: 0;
+}
+
+/* Footer modules for boxing content */
+.footer-module {
+  padding: 15px;
+  margin: 0 0 15px;
+}
+.footet-module-inset {
+  padding: 15px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+.footer-module-inset p:last-child,
+.footer-module-inset ul:last-child,
+.footer-module-inset ol:last-child {
+  margin-bottom: 0;
+}

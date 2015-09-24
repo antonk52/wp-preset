@@ -13,4 +13,3 @@ the latest version of wordpress with the most used plugins for rapid development
 - wp optimize
 - wp smushit
 - wp super cache
-- .htaccess

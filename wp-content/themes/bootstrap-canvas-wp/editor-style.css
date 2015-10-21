@@ -1,8 +1,0 @@
-/*
-Theme Name: Bootstrap Canvas WP
-Description: Used to style the TinyMCE editor.
-*/
-@import url( 'style.css' );
-
-/* Add overwrites as needed so that the content of the editor field is attractive and not broken */
-body { padding: 0; background: #fff; }

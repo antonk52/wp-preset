@@ -877,7 +877,7 @@ function updraft_backupnow_go(backupnow_nodb, backupnow_nofiles, backupnow_noclo
 jQuery(document).ready(function($){
 
 	jQuery('#updraft-navtab-backups-content').on('click', '#updraft_existing_backups .updraft_existing_backups_row', function(e) {
-		if (! e.ctrlKey) return;
+		if (! e.ctrlKey && ! e.metaKey) return;
 		jQuery(this).toggleClass('backuprowselected');
 		if (jQuery('#updraft_existing_backups .updraft_existing_backups_row.backuprowselected').length >0) {
 			jQuery('#ud_massactions').show();
@@ -885,6 +885,37 @@ jQuery(document).ready(function($){
 			jQuery('#ud_massactions').hide();
 		}
 	});
+	
+	// Remote Control
+	jQuery('#updraftplus_remotecontrol_keycreate_go').click(function(e) {
+		e.preventDefault();
+		jQuery('#updraftplus_remotecontrol_key').html(updraftlion.creating);
+		try {
+			jQuery.post(ajaxurl,  {
+				action: 'updraft_ajax',
+				subaction: 'remotecontrol_createkey',
+				nonce: updraft_credentialtest_nonce
+			}, function(response) {
+				jQuery('#updraftplus_remotecontrol_key').html();
+				try {
+					resp = jQuery.parseJSON(response);
+					alert(resp.r);
+					console.log(resp.bundle);
+					if (resp.hasOwnProperty('bundle')) {
+						jQuery('#updraftplus_remotecontrol_key').html('<textarea onclick="this.select();" style="width:625px; height:235px; word-wrap:break-word; border: 1px solid #aaa; border-radius: 3px; padding:4px;">'+resp.bundle+'</textarea>');
+					}
+				} catch (err) {
+					alert(updraftlion.unexpectedresponse+' '+response);
+					console.log(err);
+				} 
+			});
+		} catch (err) {
+			jQuery('#updraftplus_remotecontrol_key').html();
+			console.log(err);
+		}
+	});
+	
+	// UpdraftPlus Vault
 	
 	jQuery('#updraftvault_settings_cell').on('click', '.updraftvault_backtostart', function(e) {
 		e.preventDefault();

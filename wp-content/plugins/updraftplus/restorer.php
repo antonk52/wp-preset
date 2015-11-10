@@ -1006,7 +1006,7 @@ class Updraft_Restorer extends WP_Upgrader {
 		$nonce = $updraftplus->nonce;
 // TODO: Apparently empty
 		$auth_code = esc_js($this->ajax_restore_auth_code);
-error_log("AC: $auth_code ... ".serialize($this->ajax_restore_auth_code));
+// error_log("AC: $auth_code ... ".serialize($this->ajax_restore_auth_code));
 
 		echo <<<ENDHERE
 		<script>

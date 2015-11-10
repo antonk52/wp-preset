@@ -456,17 +456,24 @@ class UpdraftPlus_Backup {
 
 			$remote_sent = (!empty($backup_to_examine['service']) && ((is_array($backup_to_examine['service']) && in_array('remotesend', $backup_to_examine['service'])) || 'remotesend' === $backup_to_examine['service'])) ? true : false;
 
+			$any_deleted_via_filter_yet = false;
+
 			# Databases
 			foreach ($backup_to_examine as $key => $data) {
 				if ('db' != strtolower(substr($key, 0, 2)) || '-size' == substr($key, -5, 5)) continue;
 
 				$how_many_found = (empty($database_backups_found[$key])) ? 0 : $database_backups_found[$key];
-				if ($is_autobackup && $how_many_found < $updraft_retain_db) {
-					$updraftplus->log("This backup set ($backup_datestamp) was an automatic backup, and we have not yet reached the retain limit, so it will not be counted or pruned. Skipping.");
-					continue;
+				if ($is_autobackup) {
+					if ($any_deleted_via_filter_yet) {
+						$updraftplus->log("This backup set ($backup_datestamp) was an automatic backup, but we have previously deleted a backup due to a limit, so it will be pruned (but not counted towards numerical limits).");
+						$prune_it = true;
+					} elseif ($how_many_found < $updraft_retain_db) {
+						$updraftplus->log("This backup set ($backup_datestamp) was an automatic backup, and we have not yet reached any retain limits, so it will not be counted or pruned. Skipping.");
+						continue;
+					}
+				} else {
+					$prune_it = false;
 				}
-
-				$prune_it = false;
 
 				if ($remote_sent) {
 					$prune_it = true;
@@ -474,18 +481,26 @@ class UpdraftPlus_Backup {
 				} else {
 
 					if (empty($database_backups_found[$key])) $database_backups_found[$key] = 0;
-					$database_backups_found[$key] = $database_backups_found[$key] + 1;
 
-					if ($database_backups_found[$key] > $updraft_retain_db) {
-						$prune_it = true;
+					if (!$is_autobackup) {
+						$database_backups_found[$key] = $database_backups_found[$key] + 1;
 
-						$fname = (is_string($data)) ? $data : $data[0];
-						$updraftplus->log("$backup_datestamp: $key: this set includes a database (".$fname."); db count is now ".$database_backups_found[$key]);
+						if ($database_backups_found[$key] > $updraft_retain_db) {
+							$prune_it = true;
 
-						$updraftplus->log("$backup_datestamp: $key: over retain limit ($updraft_retain_db); will delete this database");
+							$fname = (is_string($data)) ? $data : $data[0];
+							$updraftplus->log("$backup_datestamp: $key: this set includes a database (".$fname."); db count is now ".$database_backups_found[$key]);
+
+							$updraftplus->log("$backup_datestamp: $key: over retain limit ($updraft_retain_db); will delete this database");
+						}
 					}
 				}
 				
+				// All non-auto backups must be run through this filter (in date order) regardless of the current state of $prune_it - so that filters are able to track state.
+				$prune_it_before_filter = $prune_it;
+
+				if (!$is_autobackup) $prune_it = apply_filters('updraftplus_prune_or_not', $prune_it, 'db', $backup_datestamp, $database_backups_found[$key], $key, $data, $updraft_retain_db);
+
 				if ($prune_it) {
 					// This should only be able to happen if you import backups with a future timestamp
 					if (!empty($backup_to_examine['nonce']) && $backup_to_examine['nonce'] == $updraftplus->nonce) {
@@ -494,10 +509,10 @@ class UpdraftPlus_Backup {
 					}
 				}
 
-				// All backups must be run through this filter (in date order) regardless of the current state of $prune_it - so that filters are able to track state.
-				$prune_it = apply_filters('updraftplus_prune_or_not', $prune_it, 'db', $backup_datestamp, $database_backups_found[$key], $key, $data, $updraft_retain_db);
-
 				if ($prune_it) {
+
+					if (!$prune_it_before_filter) $any_deleted_via_filter_yet = true;
+
 					if (!empty($data)) {
 						$size_key = $key.'-size';
 						$size = isset($backup_to_examine[$size_key]) ? $backup_to_examine[$size_key] : null;
@@ -511,32 +526,43 @@ class UpdraftPlus_Backup {
 
 			}
 
+			$any_deleted_via_filter_yet = false;
+
 			$file_sizes = array();
 
 			# Files
 			foreach ($backupable_entities as $entity => $info) {
 				if (!empty($backup_to_examine[$entity])) {
 
-					if ($is_autobackup && $file_entities_backups_found[$entity] < $updraft_retain) {
-						$updraftplus->log("This backup set ($backup_datestamp) was an automatic backup, and we have not yet reached the retain limit, so it will not be counted or pruned. Skipping.");
-						continue;
+					if ($is_autobackup) {
+						if ($any_deleted_via_filter_yet) {
+							$updraftplus->log("This backup set ($backup_datestamp) was an automatic backup, but we have previously deleted a backup due to a limit, so it will be pruned (but not counted towards numerical limits).");
+							$prune_it = true;
+						} elseif ($file_entities_backups_found[$entity] < $updraft_retain) {
+							$updraftplus->log("This backup set ($backup_datestamp) was an automatic backup, and we have not yet reached any retain limits, so it will not be counted or pruned. Skipping.");
+							continue;
+						} else {
+							$prune_it = false;
+						}
+					} else {
+						$prune_it = false;
 					}
-
-					$prune_it = false;
 
 					if ($remote_sent) {
 						$prune_it = true;
-					} else {
+					} elseif (!$is_autobackup) {
 						$file_entities_backups_found[$entity]++;
 						if ($file_entities_backups_found[$entity] > $updraft_retain) {
 							$prune_it = true;
 						}
 					}
 
-					// All backups must be run through this filter (in date order) regardless of the current state of $prune_it - so that filters are able to track state.
-					$prune_it = apply_filters('updraftplus_prune_or_not', $prune_it, 'files', $backup_datestamp, $file_entities_backups_found[$entity], $entity, $data, $updraft_retain);
+					// All non-auto backups must be run through this filter (in date order) regardless of the current state of $prune_it - so that filters are able to track state.
+					$prune_it_before_filter = $prune_it;
+					if (!$is_autobackup) $prune_it = apply_filters('updraftplus_prune_or_not', $prune_it, 'files', $backup_datestamp, $file_entities_backups_found[$entity], $entity, $data, $updraft_retain);
 
 					if ($prune_it) {
+						if (!$prune_it_before_filter) $any_deleted_via_filter_yet = true;
 						$prune_this = $backup_to_examine[$entity];
 						if (is_string($prune_this)) $prune_this = array($prune_this);
 
@@ -1204,8 +1230,8 @@ class UpdraftPlus_Backup {
 		usort($all_tables, array($this, 'backup_db_sorttables'));
 
 		if (!$updraftplus->really_is_writable($this->updraft_dir)) {
-			$updraftplus->log("The backup directory (".$this->updraft_dir.") is not writable.");
-			$updraftplus->log($this->updraft_dir.": ".__('The backup directory is not writable - the database backup is expected to shortly fail.','updraftplus'), 'warning');
+			$updraftplus->log("The backup directory (".$this->updraft_dir.") could not be written to (could be account/disk space full, or wrong permissions).");
+			$updraftplus->log($this->updraft_dir.": ".__('The backup directory is not writable (or disk space is full) - the database backup is expected to shortly fail.','updraftplus'), 'warning');
 			# Why not just fail now? We saw a bizarre case when the results of really_is_writable() changed during the run.
 		}
 
@@ -1821,8 +1847,13 @@ class UpdraftPlus_Backup {
 						$updraftplus->log(sprintf(__("%s: unreadable file - could not be backed up", 'updraftplus'), $use_path_when_storing.'/'.$e), 'warning', "unrfile-$e");
 					}
 				} elseif (is_dir($fullpath.'/'.$e)) {
-					// no need to addEmptyDir here, as it gets done when we recurse
-					$this->makezip_recursive_add($fullpath.'/'.$e, $use_path_when_storing.'/'.$e, $original_fullpath, $startlevels, $exclude);
+					if ('wpcore' == $this->whichone && 'updraft' == $e && basename($use_path_when_storing) == 'wp-content' && (!defined('UPDRAFTPLUS_WPCORE_INCLUDE_UPDRAFT_DIRS') || !UPDRAFTPLUS_WPCORE_INCLUDE_UPDRAFT_DIRS)) {
+						// This test, of course, won't catch everything - it just aims to make things better by default
+						$updraftplus->log("Directory excluded for looking like a sub-site's internal UpdraftPlus directory (enable by defining UPDRAFTPLUS_WPCORE_INCLUDE_UPDRAFT_DIRS): ".$use_path_when_storing.'/'.$e);
+					} else {
+						// no need to addEmptyDir here, as it gets done when we recurse
+						$this->makezip_recursive_add($fullpath.'/'.$e, $use_path_when_storing.'/'.$e, $original_fullpath, $startlevels, $exclude);
+					}
 				}
 			}
 			closedir($dir_handle);
@@ -1960,16 +1991,25 @@ class UpdraftPlus_Backup {
 
 				$updraftplus->log(basename($examine_zip).": Zip file already exists, with ".count($this->existing_files)." files");
 
-				# try_split is set if there have been no check-ins recently
-				if ($j == $this->index && isset($this->try_split)) {
-					if (filesize($examine_zip) > 50*1048576) {
-						# We could, as a future enhancement, save this back to the job data, if we see a case that needs it
-						$this->zip_split_every = max((int)$this->zip_split_every/2, UPDRAFTPLUS_SPLIT_MIN*1048576, filesize($examine_zip));
-						$updraftplus->jobdata_set('split_every', (int)($this->zip_split_every/1048576));
-						$updraftplus->log("No check-in on last two runs; bumping index and reducing zip split for this job to: ".round($this->zip_split_every/1048576, 1)." Mb");
+				# try_split is set if there have been no check-ins recently - or if it needs to be split anyway
+				if ($j == $this->index) {
+					if (isset($this->try_split)) {
+						if (filesize($examine_zip) > 50*1048576) {
+							# We could, as a future enhancement, save this back to the job data, if we see a case that needs it
+							$this->zip_split_every = max(
+								(int)$this->zip_split_every/2,
+								UPDRAFTPLUS_SPLIT_MIN*1048576,
+								min(filesize($examine_zip)-1048576, $this->zip_split_every)
+							);
+							$updraftplus->jobdata_set('split_every', (int)($this->zip_split_every/1048576));
+							$updraftplus->log("No check-in on last two runs; bumping index and reducing zip split to: ".round($this->zip_split_every/1048576, 1)." Mb");
+							$do_bump_index = true;
+						}
+						unset($this->try_split);
+					} elseif (filesize($examine_zip) > $this->zip_split_every) {
+						$updraftplus->log(sprintf("Zip size is at/near split limit (%s Mb / %s Mb) - bumping index (from: %d)", filesize($examine_zip), round($this->zip_split_every/1048576, 1), $this->index));
 						$do_bump_index = true;
 					}
-					unset($this->try_split);
 				}
 
 			} elseif (file_exists($examine_zip)) {

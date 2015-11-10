@@ -407,7 +407,7 @@ class UpdraftPlus_BackupModule_dropbox {
 
 			<?php
 
-				$defmsg = '<tr class="updraftplusmethod dropbox"><td></td><td><strong>'.__('Need to use sub-folders?','updraftplus').'</strong> '.__('Backups are saved in','updraftplus').' apps/UpdraftPlus. '.__('If you back up several sites into the same Dropbox and want to organise with sub-folders, then ','updraftplus').'<a href="http://updraftplus.com/shop/">'.__("there's an add-on for that.",'updraftplus').'</a></td></tr>';
+				$defmsg = '<tr class="updraftplusmethod dropbox"><td></td><td><strong>'.__('Need to use sub-folders?','updraftplus').'</strong> '.__('Backups are saved in','updraftplus').' apps/UpdraftPlus. '.__('If you back up several sites into the same Dropbox and want to organise with sub-folders, then ','updraftplus').'<a href="https://updraftplus.com/shop/">'.__("there's an add-on for that.",'updraftplus').'</a></td></tr>';
 
 				echo apply_filters('updraftplus_dropbox_extra_config', $defmsg); ?>
 

@@ -70,6 +70,14 @@ class UpdraftPlus_Admin {
 				}
 				if (!empty($clientid) && empty($token)) add_action('all_admin_notices', array($this,'show_admin_warning_googledrive'));
 			}
+			if ('googlecloud' === $service || (is_array($service) && in_array('googlecloud', $service))) {
+				$opts = UpdraftPlus_Options::get_updraft_option('updraft_googlecloud');
+				if (!empty($opts)) {
+					$clientid = $opts['clientid'];
+					$token = (empty($opts['token'])) ? '' : $opts['token'];
+				}
+				if (!empty($clientid) && empty($token)) add_action('all_admin_notices', array($this,'show_admin_warning_googlecloud'));
+			}
 			if ('dropbox' === $service || (is_array($service) && in_array('dropbox', $service))) {
 				$opts = UpdraftPlus_Options::get_updraft_option('updraft_dropbox');
 				if (empty($opts['tk_request_token'])) {
@@ -138,7 +146,7 @@ class UpdraftPlus_Admin {
 	public function updraft_ajaxrestore() {
 // TODO: All needs testing with restricted filesystem permissions. Those credentials need to be POST-ed too - currently not.
 // TODO
-error_log(serialize($_POST));
+// error_log(serialize($_POST));
 
 		if (empty($_POST['subaction']) || 'restore' != $_POST['subaction']) {
 			echo json_encode(array('e' => 'Illegitimate data sent (0)'));
@@ -781,6 +789,7 @@ error_log(serialize($_POST));
 		.selectric-items .ico-sftp { background: url(<?php echo $images_dir; ?>/folder.png) no-repeat; }
 		.selectric-items .ico-webdav { background: url(<?php echo $images_dir; ?>/webdav.png) no-repeat; }
 		.selectric-items .ico-s3generic { background: url(<?php echo $images_dir; ?>/folder.png) no-repeat; }
+		.selectric-items .ico-googlecloud { background: url(<?php echo $images_dir; ?>/googlecloud.png) no-repeat; }
 		.selectric-items .ico-openstack { background: url(<?php echo $images_dir; ?>/openstack.png) no-repeat; }
 		.selectric-items .ico-dreamobjects { background: url(<?php echo $images_dir; ?>/dreamobjects.png) no-repeat; }
 		.selectric-items .ico-email { background: url(<?php echo $images_dir; ?>/email.png) no-repeat; }
@@ -943,8 +952,13 @@ error_log(serialize($_POST));
 	}
 
 	public function show_admin_warning_googledrive() {
-		$this->show_admin_warning('<strong>'.__('UpdraftPlus notice:','updraftplus').'</strong> <a href="'.UpdraftPlus_Options::admin_page_url().'?page=updraftplus&action=updraftmethod-googledrive-auth&updraftplus_googleauth=doit">'.sprintf(__('Click here to authenticate your %s account (you will not be able to back up to %s without it).','updraftplus'),'Google Drive','Google Drive').'</a>');
+		$this->show_admin_warning('<strong>'.__('UpdraftPlus notice:','updraftplus').'</strong> <a href="'.UpdraftPlus_Options::admin_page_url().'?page=updraftplus&action=updraftmethod-googledrive-auth&updraftplus_googleauth=doit">'.sprintf(__('Click here to authenticate your %s account (you will not be able to back up to %s without it).','updraftplus'), 'Google Drive', 'Google Drive').'</a>');
 	}
+
+	public function show_admin_warning_googlecloud() {
+		$this->show_admin_warning('<strong>'.__('UpdraftPlus notice:','updraftplus').'</strong> <a href="'.UpdraftPlus_Options::admin_page_url().'?page=updraftplus&action=updraftmethod-googlecloud-auth&updraftplus_googleauth=doit">'.sprintf(__('Click here to authenticate your %s account (you will not be able to back up to %s without it).','updraftplus'), 'Google Cloud', 'Google Cloud').'</a>');
+	}
+
 
 	// This options filter removes ABSPATH off the front of updraft_dir, if it is given absolutely and contained within it
 	public function prune_updraft_dir_prefix($updraft_dir) {
@@ -1205,6 +1219,12 @@ error_log(serialize($_POST));
 				'ds' => $download_status,
 				'u' => $logupdate_array
 			));
+		} elseif (isset($_REQUEST['subaction']) && 'remotecontrol_createkey' == $_REQUEST['subaction']) {
+			// Use the site URL - this means that if the site URL changes, communication ends; which is the case anyway
+			$name_hash = md5(site_url()); // 32 characters
+			$created = $updraftplus->create_remote_control_key($name_hash);
+			echo json_encode($created);
+			die;
 		} elseif (isset($_REQUEST['subaction']) && 'callwpaction' == $_REQUEST['subaction'] && !empty($_REQUEST['wpaction'])) {
 
 			ob_start();
@@ -2948,6 +2968,13 @@ error_log(serialize($_POST));
 				$this->settings_debugrow('WP_CONTENT_DIR:', htmlspecialchars(WP_CONTENT_DIR));
 				$this->settings_debugrow('WP_PLUGIN_DIR:', htmlspecialchars(WP_PLUGIN_DIR));
 				$this->settings_debugrow('Table prefix:', htmlspecialchars($updraftplus->get_table_prefix()));
+
+				if (defined('UPDRAFTPLUS_EXPERIMENTAL_REMOTECONTROL') && UPDRAFTPLUS_EXPERIMENTAL_REMOTECONTROL) {
+					$show_key_create = '<span id="updraftplus_remotecontrol_key"><a href="#" id="updraftplus_remotecontrol_keycreate_go">'.__('Create a new key (this will invalidate any currently in-use key and disconnect any existing remote control connection)', 'updraftplus').'</a></span>';
+					$this->settings_debugrow('Remote control key:', $show_key_create);
+					
+				}
+
 				$peak_memory_usage = memory_get_peak_usage(true)/1024/1024;
 				$memory_usage = memory_get_usage(true)/1024/1024;
 				$this->settings_debugrow(__('Peak memory usage','updraftplus').':', $peak_memory_usage.' MB');
@@ -2959,7 +2986,7 @@ error_log(serialize($_POST));
 					$cv = curl_version();
 					$cvs = $cv['version'].' / SSL: '.$cv['ssl_version'].' / libz: '.$cv['libz_version'];
 				} else {
-					$cvs = '-';
+					$cvs = __('Not installed', 'updraftplus').' ('.__('required for some remote storage providers', 'updraftplus').')';
 				}
 				$this->settings_debugrow(sprintf(__('%s version:','updraftplus'), 'Curl'), htmlspecialchars($cvs));
 				if (version_compare(phpversion(), '5.2.0', '>=') && extension_loaded('zip')) {

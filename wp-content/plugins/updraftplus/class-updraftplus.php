@@ -19,6 +19,7 @@ class UpdraftPlus {
 		'ftp' => 'FTP',
 		'copycom' => 'Copy.Com',
 		'sftp' => 'SFTP / SCP',
+		'googlecloud' => 'Google Cloud',
 		'webdav' => 'WebDAV',
 		's3generic' => 'S3-Compatible (Generic)',
 		'openstack' => 'OpenStack (Swift)',
@@ -123,6 +124,48 @@ class UpdraftPlus {
 		}
 		echo json_encode(array('disconnected' => 0));
 		die;
+	}
+
+	// Gets an RPC object, and sets some defaults on it that we always want
+	public function get_udrpc($indicator_name = 'migrator.updraftplus.com') {
+		if (!class_exists('UpdraftPlus_Remote_Communications')) require_once(UPDRAFTPLUS_DIR.'/includes/class-udrpc.php');
+		$ud_rpc = new UpdraftPlus_Remote_Communications($indicator_name);
+		$ud_rpc->set_can_generate(true);
+		return $ud_rpc;
+	}
+
+	public function create_remote_control_key($name_hash) {
+
+		$indicator_name = $name_hash.'.remotecontrol.updraftplus.com';
+
+		$our_keys = UpdraftPlus_Options::get_updraft_option('updraft_remotecontrol_localkeys');
+		if (!is_array($our_keys)) $our_keys = array();
+		
+		if (isset($our_keys[$name_hash])) {
+			unset($our_keys[$name_hash]);
+		}
+
+		$ud_rpc = $this->get_udrpc($indicator_name);
+
+		if (is_object($ud_rpc) && $ud_rpc->generate_new_keypair()) {
+			$local_bundle = $ud_rpc->get_portable_bundle('base64_with_count');
+
+			$our_keys[$name_hash] = array(
+				'name' => 'UpdraftPlus.Com',
+				'key' => $ud_rpc->get_key_local()
+			);
+			UpdraftPlus_Options::update_updraft_option('updraft_remotecontrol_localkeys', $our_keys);
+
+			return array(
+				'bundle' => $local_bundle,
+				'r' => __('Key created successfully.', 'updraftplus').' '.__('You must copy and paste this key now - it cannot be shown again.', 'updraftplus'),
+// 				'selector' => $this->get_remotesites_selector(array()),
+// 				'ourkeys' => $this->list_our_keys($our_keys),
+			);
+		}
+
+		return false;
+
 	}
 
 	public function ensure_phpseclib($classes = false, $class_paths = false) {
@@ -330,7 +373,7 @@ class UpdraftPlus {
 
 	public function siteid() {
 		$sid = get_site_option('updraftplus-addons_siteid');
-		if (!is_string($sid)) {
+		if (!is_string($sid) || empty($sid)) {
 			$sid = md5(rand().time().home_url());
 			update_site_option('updraftplus-addons_siteid', $sid);
 		}
@@ -785,7 +828,7 @@ class UpdraftPlus {
 		}
 	}
 
-	public function chunked_download($file, $method, $remote_size, $manually_break_up = false, $passback = null) {
+	public function chunked_download($file, $method, $remote_size, $manually_break_up = false, $passback = null, $chunk_size = 1048576) {
 
 		try {
 
@@ -804,7 +847,7 @@ class UpdraftPlus {
 				return false;
 			}
 
-			$last_byte = ($manually_break_up) ? min($remote_size, $start_offset + 1048576) : $remote_size;
+			$last_byte = ($manually_break_up) ? min($remote_size, $start_offset + $chunk_size) : $remote_size;
 
 			# This only affects logging
 			$expected_bytes_delivered_so_far = true;
@@ -836,7 +879,7 @@ class UpdraftPlus {
 
 				clearstatcache();
 				$start_offset = ftell($fh);
-				$last_byte = ($manually_break_up) ? min($remote_size, $start_offset + 1048576) : $remote_size;
+				$last_byte = ($manually_break_up) ? min($remote_size, $start_offset + $chunk_size) : $remote_size;
 
 			}
 
@@ -1134,15 +1177,15 @@ class UpdraftPlus {
 
 		if ($full_info) {
 			$arr = array(
-				'plugins' => array('path' => WP_PLUGIN_DIR, 'description' => __('Plugins','updraftplus')),
+				'plugins' => array('path' => untrailingslashit(WP_PLUGIN_DIR), 'description' => __('Plugins','updraftplus')),
 				'themes' => array('path' => WP_CONTENT_DIR.'/themes', 'description' => __('Themes','updraftplus')),
-				'uploads' => array('path' => $wp_upload_dir['basedir'], 'description' => __('Uploads','updraftplus'))
+				'uploads' => array('path' => untrailingslashit($wp_upload_dir['basedir']), 'description' => __('Uploads','updraftplus'))
 			);
 		} else {
 			$arr = array(
-				'plugins' => WP_PLUGIN_DIR,
+				'plugins' => untrailingslashit(WP_PLUGIN_DIR),
 				'themes' => WP_CONTENT_DIR.'/themes',
-				'uploads' => $wp_upload_dir['basedir']
+				'uploads' => untrailingslashit($wp_upload_dir['basedir'])
 			);
 		}
 
@@ -2193,6 +2236,8 @@ class UpdraftPlus {
 		// Make sure that the final status is shown
 		if (0 == $this->error_count()) {
 			$send_an_email = true;
+			$service = $this->jobdata_get('service');
+			$remote_sent = (!empty($service) && ((is_array($service) && in_array('remotesend', $service)) || 'remotesend' === $service)) ? true : false;
 			if (0 == $this->error_count('warning')) {
 				$final_message = __('The backup apparently succeeded and is now complete', 'updraftplus');
 				# Ensure it is logged in English. Not hugely important; but helps with a tiny number of really broken setups in which the options cacheing is broken
@@ -2205,6 +2250,7 @@ class UpdraftPlus {
 					$this->log('The backup apparently succeeded (with warnings) and is now complete');
 				}
 			}
+			if ($remote_sent) $final_message .= '. '.__('To complete your migration/clone, you should now log in to the remote site and restore the backup set.', 'updraftplus');
 			if ($do_cleanup) $delete_jobdata = apply_filters('updraftplus_backup_complete', $delete_jobdata);
 		} elseif (false == $this->newresumption_scheduled) {
 			$send_an_email = true;
@@ -2722,7 +2768,7 @@ class UpdraftPlus {
 		return $interval;
 	}
 
-	// Acts as a Wordpress options filter
+	// Acts as a WordPress options filter
 	public function onedrive_checkchange($onedrive) {
 		$opts = UpdraftPlus_Options::get_updraft_option('updraft_onedrive');
 		if (!is_array($opts)) $opts = array();
@@ -2762,6 +2808,34 @@ class UpdraftPlus {
 			unset($opts['parentid']);
 		}
 		return $opts;
+	}
+
+	// Acts as a WordPress options filter
+	public function googlecloud_checkchange($google) {
+		$opts = UpdraftPlus_Options::get_updraft_option('updraft_googlecloud');
+		if (!is_array($google)) return $opts;
+		
+		$old_token = (empty($opts['token'])) ? '' : $opts['token'];
+		$old_client_id = (empty($opts['clientid'])) ? '' : $opts['clientid'];
+		$old_client_secret = (empty($opts['secret'])) ? '' : $opts['secret'];
+		
+		if($old_client_id == $google['clientid'] && $old_client_secret == $google['secret']){
+			$google['token'] = $old_token;
+		}
+		if (!empty($opts['token']) && $old_client_id != $google['clientid']) {
+			add_action('http_request_args', array($this, 'modify_http_options'));
+			UpdraftPlus_Addons_RemoteStorage_googlecloud::gcloud_auth_revoke(false);
+			remove_action('http_request_args', array($this, 'modify_http_options'));
+			$google['token'] = '';
+			unset($opts['ownername']);
+		}
+		foreach ($google as $key => $value) {
+			// Trim spaces - I got support requests from users who didn't spot the spaces they introduced when copy/pasting
+			$opts[$key] = ('clientid' == $key || 'secret' == $key) ? trim($value) : $value;
+			if ($key == 'bucket_location') $opts[$key] = trim(strtolower($value));
+		}
+		
+		return $google;
 	}
 
 	public function ftp_sanitise($ftp) {
@@ -2907,6 +2981,23 @@ class UpdraftPlus {
 		return true;
 	}
 
+	public function get_mime_type_from_filename($filename, $allow_gzip = true) {
+		if ('.zip' == substr($filename, -4, 4)) {
+			return 'application/zip';
+		} elseif ('.tar' == substr($filename, -4, 4)) {
+			return 'application/x-tar';
+		} elseif ('.tar.gz' == substr($filename, -7, 7)) {
+			return 'application/x-tgz';
+		} elseif ('.tar.bz2' == substr($filename, -8, 8)) {
+			return 'application/x-bzip-compressed-tar';
+		} elseif ($allow_gzip && '.gz' == substr($filename, -3, 3)) {
+			// When we sent application/x-gzip as a content-type header to the browser, we found a case where the server compressed it a second time (since observed several times)
+			return 'application/x-gzip';
+		} else {
+			return 'application/octet-stream';
+		}
+	}
+
 	public function spool_file($type, $fullpath, $encryption = "") {
 		@set_time_limit(900);
 
@@ -2922,18 +3013,8 @@ class UpdraftPlus {
 
 				header("Content-Length: ".filesize($fullpath));
 
-				if ('.zip' == substr($fullpath, -4, 4)) {
-					header('Content-type: application/zip');
-				} elseif ('.tar' == substr($fullpath, -4, 4)) {
-					header('Content-type: application/x-tar');
-				} elseif ('.tar.gz' == substr($fullpath, -7, 7)) {
-					header('Content-type: application/x-tgz');
-				} elseif ('.tar.bz2' == substr($fullpath, -8, 8)) {
-					header('Content-type: application/x-bzip-compressed-tar');
-				} else {
-					// When we sent application/x-gzip, we found a case where the server compressed it a second time
-					header('Content-type: application/octet-stream');
-				}
+				header('Content-type: '.$this->get_mime_type_from_filename($fullpath, false));
+
 				header("Content-Disposition: attachment; filename=\"".basename($fullpath)."\";");
 				# Prevent the file being read into memory
 				@ob_end_flush();
@@ -3387,7 +3468,7 @@ CREATE TABLE $wpdb->signups (
 	public function get_settings_keys() {
 	// N.B. updraft_backup_history is not included here, as we don't want that wiped
 		return array('updraft_autobackup_default', 'updraft_dropbox', 'updraft_googledrive', 'updraftplus_tmp_googledrive_access_token', 'updraftplus_dismissedautobackup', 'updraftplus_dismissedexpiry', 'updraftplus_dismisseddashnotice', 'updraft_interval', 'updraft_interval_increments', 'updraft_interval_database', 'updraft_retain', 'updraft_retain_db', 'updraft_encryptionphrase', 'updraft_service', 'updraft_dropbox_appkey', 'updraft_dropbox_secret', 'updraft_googledrive_clientid', 'updraft_googledrive_secret', 'updraft_googledrive_remotepath', 'updraft_ftp_login', 'updraft_ftp_pass', 'updraft_ftp_remote_path', 'updraft_server_address', 'updraft_dir', 'updraft_email', 'updraft_delete_local', 'updraft_debug_mode', 'updraft_include_plugins', 'updraft_include_themes', 'updraft_include_uploads', 'updraft_include_others', 'updraft_include_wpcore', 'updraft_include_wpcore_exclude', 'updraft_include_more', 'updraft_include_blogs', 'updraft_include_mu-plugins',
-		'updraft_include_others_exclude', 'updraft_include_uploads_exclude', 'updraft_lastmessage', 'updraft_googledrive_token', 'updraft_dropboxtk_request_token', 'updraft_dropboxtk_access_token', 'updraft_dropbox_folder', 'updraft_adminlocking', 'updraft_updraftvault', 'updraft_remotesites', 'updraft_migrator_localkeys', 'updraft_retain_extrarules',
+		'updraft_include_others_exclude', 'updraft_include_uploads_exclude', 'updraft_lastmessage', 'updraft_googledrive_token', 'updraft_dropboxtk_request_token', 'updraft_dropboxtk_access_token', 'updraft_dropbox_folder', 'updraft_adminlocking', 'updraft_updraftvault', 'updraft_remotesites', 'updraft_migrator_localkeys', 'updraft_remotecontrol_localkeys', 'updraft_retain_extrarules', 'updraft_googlecloud',
 		'updraft_last_backup', 'updraft_starttime_files', 'updraft_starttime_db', 'updraft_startday_db', 'updraft_startday_files', 'updraft_sftp_settings', 'updraft_s3', 'updraft_s3generic', 'updraft_dreamhost', 'updraft_s3generic_login', 'updraft_s3generic_pass', 'updraft_s3generic_remote_path', 'updraft_s3generic_endpoint', 'updraft_webdav_settings', 'updraft_openstack', 'updraft_bitcasa', 'updraft_copycom', 'updraft_onedrive', 'updraft_cloudfiles', 'updraft_cloudfiles_user', 'updraft_cloudfiles_apikey', 'updraft_cloudfiles_path', 'updraft_cloudfiles_authurl', 'updraft_ssl_useservercerts', 'updraft_ssl_disableverify', 'updraft_s3_login', 'updraft_s3_pass', 'updraft_s3_remote_path', 'updraft_dreamobjects_login', 'updraft_dreamobjects_pass', 'updraft_dreamobjects_remote_path', 'updraft_report_warningsonly', 'updraft_report_wholebackup', 'updraft_log_syslog', 'updraft_extradatabases');
 	}
 

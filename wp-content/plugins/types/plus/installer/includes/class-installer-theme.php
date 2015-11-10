@@ -843,7 +843,7 @@ class Installer_Theme_Class {
             check_ajax_referer( 'installer_theme_frontend_selected_tab', 'installer_theme_frontend_selected_tab_nonce' );
 
             //Client_side_active_tab
-            $frontend_tab_selected = $_POST["frontend_tab_selected"];
+            $frontend_tab_selected = filter_input( INPUT_POST, 'frontend_tab_selected', FILTER_SANITIZE_FULL_SPECIAL_CHARS, FILTER_NULL_ON_FAILURE );
             if ( !(empty($frontend_tab_selected)) ) {
                 //Front end tab selected
                 update_option( 'wp_installer_clientside_active_tab', $frontend_tab_selected, false );
@@ -864,8 +864,8 @@ class Installer_Theme_Class {
 
                         //Message and link
                         $theme_repo_name = $this->installer_theme_get_repo_product_name( $frontend_tab_selected );;
-                        $response['unregistered_messages'] = __( 'To install and update', 'installer' ) . ' ' . $theme_repo_name . ' ' . __( 'themes', 'installer' ) . ',' . ' ' .
-                            __( 'please', 'installer' ) . ' ' . '<a href="' . $registration_url . '">' . __( 'register', 'installer' ) . ' ' . $theme_repo_name . '</a>' . ' ' . __( 'for this site.', 'installer' );
+                        $response['unregistered_messages'] = sprintf( __( 'To install and update %s, please %sregister%s %s for this site.', 'installer' ),
+                            $theme_repo_name, '<a href="' . $registration_url . '">', '</a>', $theme_repo_name );
 
                     }
                 }

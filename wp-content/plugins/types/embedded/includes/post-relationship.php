@@ -554,7 +554,7 @@ function wpcf_relationship_is_parent( $parent_post_type, $child_post_type ) {
 
 function wpcf_pr_admin_wpcf_relationship_check($keys_to_check = array())
 {
-    $keys_to_check += array('nounce', 'post_id', 'post_type');
+    $keys_to_check = array_unique(array_merge($keys_to_check, array('nounce', 'post_id', 'post_type')));
     foreach( $keys_to_check as $key ) {
         if ( !isset($_REQUEST[$key] ) ) {
             die(__('Sorry, something went wrong. The requested can not be completed.', 'wpcf'));
@@ -610,7 +610,10 @@ function wpcf_pr_admin_wpcf_relationship_search()
             $item_lang = apply_filters( 'wpml_element_language_code', NULL, $args );
 
             // unset the item if not in the current language
-            if ( $item_lang != $active_lang ) {
+            if (
+                !is_null($item_lang)
+                && $item_lang != $active_lang
+            ) {
                 unset( $posts['items'][ $key ] );
                 $posts['total_count']--;
             }

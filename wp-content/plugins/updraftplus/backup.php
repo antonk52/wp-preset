@@ -49,6 +49,9 @@ class UpdraftPlus_Backup {
 	// Used for reporting
 	private $remotestorage_extrainfo = array();
 
+	// Used when deciding to use the 'store' or 'deflate' zip storage method
+	private $extensions_to_not_compress = array();
+
 	public function __construct($backup_files, $altered_since = -1) {
 
 		global $updraftplus;
@@ -78,6 +81,8 @@ class UpdraftPlus_Backup {
 			$this->use_zip_object = 'UpdraftPlus_PclZip';
 			return;
 		}
+
+		$this->extensions_to_not_compress = array_unique(array_map('strtolower', array_map('trim', explode(',', UPDRAFTPLUS_ZIP_NOCOMPRESS))));
 
 		$this->altered_since = $altered_since;
 
@@ -125,7 +130,7 @@ class UpdraftPlus_Backup {
 	// Public, because called from the 'More Files' add-on
 	public function create_zip($create_from_dir, $whichone, $backup_file_basename, $index, $first_linked_index = false) {
 		// Note: $create_from_dir can be an array or a string
-		@set_time_limit(900);
+		@set_time_limit(UPDRAFTPLUS_SET_TIME_LIMIT);
 		$original_index = $index;
 		$this->index = $index;
 		$this->first_linked_index = (false === $first_linked_index) ? 0 : $first_linked_index;
@@ -337,7 +342,7 @@ class UpdraftPlus_Backup {
 
 			$log_extra = ($this->last_service) ? ' (last)' : '';
 			$updraftplus->log("Cloud backup selection (".($ind+1)."/".count($services)."): ".$service.$log_extra);
-			@set_time_limit(900);
+			@set_time_limit(UPDRAFTPLUS_SET_TIME_LIMIT);
 
 			$method_include = UPDRAFTPLUS_DIR.'/methods/'.$service.'.php';
 			if (file_exists($method_include)) require_once($method_include);
@@ -1255,7 +1260,7 @@ class UpdraftPlus_Backup {
 			$total_tables++;
 
 			// Increase script execution time-limit to 15 min for every table.
-			@set_time_limit(900);
+			@set_time_limit(UPDRAFTPLUS_SET_TIME_LIMIT);
 			// The table file may already exist if we have produced it on a previous run
 			$table_file_prefix = $file_base.'-db'.$this->whichdb_suffix.'-table-'.$table.'.table';
 
@@ -1484,7 +1489,7 @@ class UpdraftPlus_Backup {
 		// Deal with Windows/old MySQL setups with erroneous table prefixes differing in case
 		$dump_as_table = ($this->duplicate_tables_exist == false && stripos($table, $this->table_prefix) === 0 && strpos($table, $this->table_prefix) !== 0) ? $this->table_prefix.substr($table, strlen($this->table_prefix)) : $table;
 
-		$table_structure = $this->wpdb_obj->get_results("DESCRIBE $table");
+		$table_structure = $this->wpdb_obj->get_results("DESCRIBE ".$updraftplus->backquote($table));
 		if (! $table_structure) {
 			//$updraftplus->log(__('Error getting table details','wp-db-backup') . ": $table", 'error');
 			return false;
@@ -1499,7 +1504,7 @@ class UpdraftPlus_Backup {
 			// Comment in SQL-file
 			$this->stow("\n# Table structure of table ".$updraftplus->backquote($table)."\n\n");
 			
-			$create_table = $this->wpdb_obj->get_results("SHOW CREATE TABLE `$table`", ARRAY_N);
+			$create_table = $this->wpdb_obj->get_results("SHOW CREATE TABLE ".$updraftplus->backquote($table), ARRAY_N);
 			if (false === $create_table) {
 				$err_msg ='Error with SHOW CREATE TABLE for '.$table;
 				//$updraftplus->log($err_msg, 'error');
@@ -1574,7 +1579,7 @@ class UpdraftPlus_Backup {
 			if ($where) $where = "WHERE $where";
 
 			do {
-				@set_time_limit(900);
+				@set_time_limit(UPDRAFTPLUS_SET_TIME_LIMIT);
 
 				$table_data = $this->wpdb_obj->get_results("SELECT * FROM $table $where LIMIT {$row_start}, {$row_inc}", ARRAY_A);
 				$entries = 'INSERT INTO ' . $updraftplus->backquote($dump_as_table) . ' VALUES ';
@@ -1766,6 +1771,8 @@ class UpdraftPlus_Backup {
 		if (is_file($fullpath)) {
 			if (!empty($this->excluded_extensions) && $this->is_entity_excluded_by_extension($fullpath)) {
 				$updraftplus->log("Entity excluded by configuration option (extension): ".basename($fullpath));
+			} elseif (!empty($this->excluded_prefixes) && $this->is_entity_excluded_by_prefix($fullpath)) {
+				$updraftplus->log("Entity excluded by configuration option (prefix): ".basename($fullpath));
 			} elseif (is_readable($fullpath)) {
 				$mtime = filemtime($fullpath);
 				$key = ($fullpath == $original_fullpath) ? ((2 == $startlevels) ? $use_path_when_storing : $this->basename($fullpath)) : $use_path_when_storing.'/'.$this->basename($fullpath);
@@ -1808,6 +1815,8 @@ class UpdraftPlus_Backup {
 								unset($exclude[$fkey]);
 							} elseif (!empty($this->excluded_extensions) && $this->is_entity_excluded_by_extension($e)) {
 								$updraftplus->log("Entity excluded by configuration option (extension): $use_stripped");
+							} elseif (!empty($this->excluded_prefixes) && $this->is_entity_excluded_by_prefix($e)) {
+								$updraftplus->log("Entity excluded by configuration option (prefix): $use_stripped");
 							} else {
 								$mtime = filemtime($deref);
 								if ($mtime > 0 && $mtime > $if_altered_since) {
@@ -1833,6 +1842,8 @@ class UpdraftPlus_Backup {
 							unset($exclude[$fkey]);
 						} elseif (!empty($this->excluded_extensions) && $this->is_entity_excluded_by_extension($e)) {
 							$updraftplus->log("Entity excluded by configuration option (extension): $use_stripped");
+						} elseif (!empty($this->excluded_prefixes) && $this->is_entity_excluded_by_prefix($e)) {
+							$updraftplus->log("Entity excluded by configuration option (prefix): $use_stripped");
 						} else {
 							$mtime = filemtime($fullpath.'/'.$e);
 							if ($mtime > 0 && $mtime > $if_altered_since) {
@@ -1884,11 +1895,33 @@ class UpdraftPlus_Backup {
 		return $exclude_extensions;
 	}
 
+	private function get_excluded_prefixes($exclude) {
+		if (!is_array($exclude)) $exclude = array();
+		$exclude_prefixes = array();
+		foreach ($exclude as $pref) {
+			if (preg_match('/^prefix:(.+)$/i', $pref, $matches)) {
+				$exclude_prefixes[] = strtolower($matches[1]);
+			}
+		}
+
+		return $exclude_prefixes;
+	}
+
 	private function is_entity_excluded_by_extension($entity) {
 		foreach ($this->excluded_extensions as $ext) {
 			if (!$ext) continue;
 			$eln = strlen($ext);
 			if (strtolower(substr($entity, -$eln, $eln)) == $ext) return true;
+		}
+		return false;
+	}
+
+	private function is_entity_excluded_by_prefix($entity) {
+		$entity = basename($entity);
+		foreach ($this->excluded_prefixes as $pref) {
+			if (!$pref) continue;
+			$eln = strlen($pref);
+			if (strtolower(substr($entity, 0, $eln)) == $pref) return true;
 		}
 		return false;
 	}
@@ -2108,6 +2141,7 @@ class UpdraftPlus_Backup {
 		$time_counting_began = time();
 
 		$this->excluded_extensions = $this->get_excluded_extensions($exclude);
+		$this->excluded_prefixes = $this->get_excluded_prefixes($exclude);
 
 		foreach ($source as $element) {
 			#makezip_recursive_add($fullpath, $use_path_when_storing, $original_fullpath, $startlevels = 1, $exclude_array)
@@ -2273,6 +2307,15 @@ class UpdraftPlus_Backup {
 		return $basename;
 	}
 
+	private function file_should_be_stored_without_compression($file) {
+		if (!is_array($this->extensions_to_not_compress)) return false;
+		foreach ($this->extensions_to_not_compress as $ext) {
+			$ext_len = strlen($ext);
+			if (strtolower(substr($file, -$ext_len, $ext_len)) == $ext) return true;
+		}
+		return false;
+	}
+
 	// Q. Why don't we only open and close the zip file just once?
 	// A. Because apparently PHP doesn't write out until the final close, and it will return an error if anything file has vanished in the meantime. So going directory-by-directory reduces our chances of hitting an error if the filesystem is changing underneath us (which is very possible if dealing with e.g. 1Gb of files)
 
@@ -2381,6 +2424,13 @@ class UpdraftPlus_Backup {
 				@touch($zipfile);
 				$zip->addFile($file, $add_as);
 				$zipfiles_added_thisbatch++;
+
+				if (method_exists($zip, 'setCompressionName') && $this->file_should_be_stored_without_compression($add_as)) {
+					if (false == ($set_compress = $zip->setCompressionName($add_as, ZipArchive::CM_STORE))) {
+						$updraftplus->log("Zip: setCompressionName failed on: $add_as");
+					}
+				}
+
 				// N.B., Since makezip_addfiles() can get called more than once if there were errors detected, potentially $zipfiles_added_thisrun can exceed the total number of batched files (if they get processed twice).
 				$this->zipfiles_added_thisrun++;
 				$files_zipadded_since_open[] = array('file' => $file, 'addas' => $add_as);
@@ -2399,7 +2449,7 @@ class UpdraftPlus_Backup {
 
 				if (!$force_allinone && ($zipfiles_added_thisbatch > UPDRAFTPLUS_MAXBATCHFILES || $reaching_split_limit || $data_added_since_reopen > $maxzipbatch || (time() - $this->zipfiles_lastwritetime) > 2)) {
 
-					@set_time_limit(900);
+					@set_time_limit(UPDRAFTPLUS_SET_TIME_LIMIT);
 					$something_useful_sizetest = false;
 
 					if ($data_added_since_reopen > $maxzipbatch) {
@@ -2715,3 +2765,4 @@ class UpdraftPlus_WPDB_OtherDB extends wpdb {
 		return false;
 	}
 }
+

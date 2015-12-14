@@ -17,12 +17,14 @@ if (!is_array(UpdraftPlus_Options::get_updraft_option('updraft_dropbox'))) {
 		'tk_request_token' => UpdraftPlus_Options::get_updraft_option('updraft_dropboxtk_request_token'),
 		'tk_access_token' => UpdraftPlus_Options::get_updraft_option('updraft_dropboxtk_access_token'),
 	);
-	UpdraftPlus_Options::update_updraft_option('updraft_dropbox', $opts);
-	UpdraftPlus_Options::delete_updraft_option('updraft_dropbox_appkey');
-	UpdraftPlus_Options::delete_updraft_option('updraft_dropbox_secret');
-	UpdraftPlus_Options::delete_updraft_option('updraft_dropbox_folder');
-	UpdraftPlus_Options::delete_updraft_option('updraft_dropboxtk_request_token');
-	UpdraftPlus_Options::delete_updraft_option('updraft_dropboxtk_access_token');
+	if (serialize($opts) != 'a:5:{s:6:"appkey";N;s:6:"secret";N;s:6:"folder";N;s:16:"tk_request_token";N;s:15:"tk_access_token";N;}') {
+		UpdraftPlus_Options::update_updraft_option('updraft_dropbox', $opts);
+		UpdraftPlus_Options::delete_updraft_option('updraft_dropbox_appkey');
+		UpdraftPlus_Options::delete_updraft_option('updraft_dropbox_secret');
+		UpdraftPlus_Options::delete_updraft_option('updraft_dropbox_folder');
+		UpdraftPlus_Options::delete_updraft_option('updraft_dropboxtk_request_token');
+		UpdraftPlus_Options::delete_updraft_option('updraft_dropboxtk_access_token');
+	}
 }
 
 class UpdraftPlus_BackupModule_dropbox {

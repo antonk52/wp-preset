@@ -481,6 +481,10 @@ class UpdraftPlus_BackupModule_googledrive {
 			require_once(UPDRAFTPLUS_DIR.'/includes/Google/autoload.php'); 
 		}
 
+		if (!class_exists('UpdraftPlus_Google_Http_MediaFileUpload')) {
+			require_once(UPDRAFTPLUS_DIR.'/includes/google-extensions.php'); 
+		}
+
 		$config = new Google_Config();
 		$config->setClassConfig('Google_IO_Abstract', 'request_timeout_seconds', 60);
 		# In our testing, $service->about->get() fails if gzip is not disabled when using the stream wrapper
@@ -711,7 +715,8 @@ class UpdraftPlus_BackupModule_googledrive {
 			}
 		}
 
-		$media = new Google_Http_MediaFileUpload(
+		// UpdraftPlus_Google_Http_MediaFileUpload extends Google_Http_MediaFileUpload, with a few extra methods to change private properties to public ones
+		$media = new UpdraftPlus_Google_Http_MediaFileUpload(
 			$client,
 			$request,
 			(('.zip' == substr($basename, -4, 4)) ? 'application/zip' : 'application/octet-stream'),
@@ -722,8 +727,10 @@ class UpdraftPlus_BackupModule_googledrive {
 		$media->setFileSize($local_size);
 
 		if (!empty($possible_location)) {
-			$media->resumeUri = $possible_location[0];
-			$media->progress = $possible_location[1];
+// 			$media->resumeUri = $possible_location[0];
+// 			$media->progress = $possible_location[1];
+			$media->updraftplus_setResumeUri($possible_location[0]);
+			$media->updraftplus_setProgress($possible_location[1]);
 			$size = $possible_location[1];
 		}
 		if ($size >= $local_size) return true;
@@ -748,7 +755,7 @@ class UpdraftPlus_BackupModule_googledrive {
 				# Error handling??
 				$pointer += strlen($chunk);
 				$status = $media->nextChunk($chunk);
-				$updraftplus->jobdata_set($transkey, array($media->resumeUri, $media->getProgress()));
+				$updraftplus->jobdata_set($transkey, array($media->updraftplus_getResumeUri(), $media->getProgress()));
 				$updraftplus->record_uploaded_chunk(round(100*$pointer/$local_size, 1), $media->getProgress(), $file);
 			}
 			

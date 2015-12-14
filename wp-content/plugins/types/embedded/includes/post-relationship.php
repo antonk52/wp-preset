@@ -577,8 +577,15 @@ function wpcf_pr_admin_wpcf_relationship_search()
         'post_status' => apply_filters( 'wpcf_pr_belongs_post_status', array( 'publish', 'private' ) ),
         'post_type' => $_REQUEST['post_type'],
         'suppress_filters' => 1,
-        's' => $_REQUEST['s'],
     );
+
+    if ( isset( $_REQUEST['s'] ) ) {
+        $args['s'] = $_REQUEST['s'];
+    }
+
+    if ( isset( $_REQUEST['page'] ) && preg_match('/^\d+$/', $_REQUEST['page']) ) {
+        $args['paged'] = intval($_REQUEST['page']);
+    }
 
     $the_query = new WP_Query( $args );
 
@@ -586,6 +593,7 @@ function wpcf_pr_admin_wpcf_relationship_search()
         'items' => array(),
         'total_count' => $the_query->found_posts,
         'incomplete_results' => $the_query->found_posts > $posts_per_page,
+        'posts_per_page' => $posts_per_page,
     );
 
     if ( $the_query->have_posts() ) {
@@ -621,7 +629,7 @@ function wpcf_pr_admin_wpcf_relationship_search()
 
         // Reset numerical keys
         $posts['items'] = array_values( $posts['items'] );
-        $posts['incomplete_results'] = $posts['total_count'] > $numberposts;
+        $posts['incomplete_results'] = $posts['total_count'] > $posts_per_page;
     }
 
     echo json_encode($posts);

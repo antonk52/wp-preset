@@ -71,7 +71,8 @@ class UpdraftPlus_BackupModule_ftp {
 			$opts['pass'],
 			$updraftplus->get_job_option('updraft_ssl_nossl'),
 			$updraftplus->get_job_option('updraft_ssl_disableverify'),
-			$updraftplus->get_job_option('updraft_ssl_useservercerts')
+			$updraftplus->get_job_option('updraft_ssl_useservercerts'),
+			$opts['passive']
 		);
 
 		if (is_wp_error($ftp) || !$ftp->connect()) {
@@ -103,7 +104,7 @@ class UpdraftPlus_BackupModule_ftp {
 			}
 
 			if ($ftp->put($fullpath, $ftp_remote_path.$file, FTP_BINARY, $resume, $updraftplus)) {
-				$updraftplus->log("FTP upload attempt successful (".$size_k."Kb in ".(round(microtime(true)-$timer_start,2)).'s)');
+				$updraftplus->log("FTP upload attempt successful (".$size_k."KB in ".(round(microtime(true)-$timer_start,2)).'s)');
 				$updraftplus->uploaded_file($file);
 			} else {
 				$updraftplus->log("ERROR: FTP upload failed" );
@@ -125,7 +126,8 @@ class UpdraftPlus_BackupModule_ftp {
 			$opts['pass'],
 			$updraftplus->get_job_option('updraft_ssl_nossl'),
 			$updraftplus->get_job_option('updraft_ssl_disableverify'),
-			$updraftplus->get_job_option('updraft_ssl_useservercerts')
+			$updraftplus->get_job_option('updraft_ssl_useservercerts'),
+			$opts['passive']
 		);
 
 		if (is_wp_error($ftp)) return $ftp;
@@ -188,7 +190,8 @@ class UpdraftPlus_BackupModule_ftp {
 				$opts['pass'],
 				$updraftplus->get_job_option('updraft_ssl_nossl'),
 				$updraftplus->get_job_option('updraft_ssl_disableverify'),
-				$updraftplus->get_job_option('updraft_ssl_useservercerts')
+				$updraftplus->get_job_option('updraft_ssl_useservercerts'),
+				$opts['passive']
 			);
 
 			if (is_wp_error($ftp) || !$ftp->connect()) {
@@ -226,7 +229,8 @@ class UpdraftPlus_BackupModule_ftp {
 			$opts['pass'],
 			$updraftplus->get_job_option('updraft_ssl_nossl'),
 			$updraftplus->get_job_option('updraft_ssl_disableverify'),
-			$updraftplus->get_job_option('updraft_ssl_useservercerts')
+			$updraftplus->get_job_option('updraft_ssl_useservercerts'),
+			$opts['passive']
 		);
 		if (is_wp_error($ftp)) return $ftp;
 
@@ -248,33 +252,6 @@ class UpdraftPlus_BackupModule_ftp {
 		}
 
 		return $ftp->get($fullpath, $ftp_remote_path.$file, FTP_BINARY, $resume, $updraftplus);
-	}
-
-	public function config_print_javascript_onready() {
-		?>
-		jQuery('#updraft-ftp-test').click(function(){
-			jQuery('#updraft-ftp-test').html('<?php echo esc_js(sprintf(__('Testing %s Settings...', 'updraftplus'),'FTP')); ?>');
-				var data = {
-				action: 'updraft_ajax',
-				subaction: 'credentials_test',
-				method: 'ftp',
-				nonce: '<?php echo wp_create_nonce('updraftplus-credentialtest-nonce'); ?>',
-				server: jQuery('#updraft_ftp_host').val(),
-				login: jQuery('#updraft_ftp_user').val(),
-				pass: jQuery('#updraft_ftp_pass').val(),
-				path: jQuery('#updraft_ftp_path').val(),
-				passive: (jQuery('#updraft_ftp_passive').is(':checked')) ? 1 : 0,
-				disableverify: (jQuery('#updraft_ssl_disableverify').is(':checked')) ? 1 : 0,
-				useservercerts: (jQuery('#updraft_ssl_useservercerts').is(':checked')) ? 1 : 0,
-				nossl: (jQuery('#updraft_ssl_nossl').is(':checked')) ? 1 : 0,
-			};
-			jQuery.post(ajaxurl, data, function(response) {
-				jQuery('#updraft-ftp-test').html('<?php echo esc_js(sprintf(__('Test %s Settings', 'updraftplus'),'FTP')); ?>');
-				alert('<?php echo esc_js(sprintf(__('%s settings test result:', 'updraftplus'), 'FTP'));?> ' + response);
-
-			});
-		});
-		<?php
 	}
 
 	private function ftp_possible() {
@@ -328,28 +305,28 @@ class UpdraftPlus_BackupModule_ftp {
 
 		<tr class="updraftplusmethod ftp">
 			<th><?php _e('FTP server','updraftplus');?>:</th>
-			<td><input type="text" size="40" id="updraft_ftp_host" name="updraft_ftp[host]" value="<?php echo htmlspecialchars($opts['host']); ?>" /></td>
+			<td><input type="text" size="40" data-updraft_settings_test="server" id="updraft_ftp_host" name="updraft_ftp[host]" value="<?php echo htmlspecialchars($opts['host']); ?>" /></td>
 		</tr>
 		<tr class="updraftplusmethod ftp">
 			<th><?php _e('FTP login','updraftplus');?>:</th>
-			<td><input type="text" size="40" id="updraft_ftp_user" name="updraft_ftp[user]" value="<?php echo htmlspecialchars($opts['user']) ?>" /></td>
+			<td><input type="text" size="40" data-updraft_settings_test="login" id="updraft_ftp_user" name="updraft_ftp[user]" value="<?php echo htmlspecialchars($opts['user']) ?>" /></td>
 		</tr>
 		<tr class="updraftplusmethod ftp">
 			<th><?php _e('FTP password','updraftplus');?>:</th>
-			<td><input type="<?php echo apply_filters('updraftplus_admin_secret_field_type', 'password'); ?>" size="40" id="updraft_ftp_pass" name="updraft_ftp[pass]" value="<?php echo htmlspecialchars(trim($opts['pass'], "\n\r\0\x0B")); ?>" /></td>
+			<td><input type="<?php echo apply_filters('updraftplus_admin_secret_field_type', 'password'); ?>" size="40" data-updraft_settings_test="pass" id="updraft_ftp_pass" name="updraft_ftp[pass]" value="<?php echo htmlspecialchars(trim($opts['pass'], "\n\r\0\x0B")); ?>" /></td>
 		</tr>
 		<tr class="updraftplusmethod ftp">
 			<th><?php _e('Remote path','updraftplus');?>:</th>
-			<td><input type="text" size="64" id="updraft_ftp_path" name="updraft_ftp[path]" value="<?php echo htmlspecialchars($opts['path']); ?>" /> <em><?php _e('Needs to already exist','updraftplus');?></em></td>
+			<td><input type="text" size="64" data-updraft_settings_test="path" id="updraft_ftp_path" name="updraft_ftp[path]" value="<?php echo htmlspecialchars($opts['path']); ?>" /> <em><?php _e('Needs to already exist','updraftplus');?></em></td>
 		</tr>
 		<tr class="updraftplusmethod ftp">
 			<th><?php _e('Passive mode','updraftplus');?>:</th>
-			<td><input type="hidden" name="updraft_ftp[passive]" value="0" /> <!-- provide an alternating value -->
-			<input type="checkbox" id="updraft_ftp_passive" name="updraft_ftp[passive]" value="1" <?php if ($opts['passive']) echo 'checked="checked"'; ?> /> <br><em><?php echo __('Almost all FTP servers will want passive mode; but if you need active mode, then uncheck this.', 'updraftplus');?></em></td>
+			<td>
+			<input type="checkbox" data-updraft_settings_test="passive" id="updraft_ftp_passive" name="updraft_ftp[passive]" value="1" <?php if ($opts['passive']) echo 'checked="checked"'; ?> /> <br><em><?php echo __('Almost all FTP servers will want passive mode; but if you need active mode, then uncheck this.', 'updraftplus');?></em></td>
 		</tr>
 		<tr class="updraftplusmethod ftp">
 		<th></th>
-		<td><p><button id="updraft-ftp-test" type="button" class="button-primary" style="font-size:18px !important"><?php echo sprintf(__('Test %s Settings','updraftplus'),'FTP');?></button></p></td>
+		<td><p><button id="updraft-ftp-test" type="button" class="button-primary updraft-test-button" data-method="ftp" data-method_label="FTP"><?php printf(__('Test %s Settings', 'updraftplus'), 'FTP');?></button></p></td>
 		</tr>
 		<?php
 	}
@@ -358,28 +335,28 @@ class UpdraftPlus_BackupModule_ftp {
 		return array('updraft_ftp', 'updraft_ssl_disableverify', 'updraft_ssl_nossl', 'updraft_ssl_useservercerts');
 	}
 
-	public function credentials_test() {
+	public function credentials_test($posted_settings) {
 
-		$server = $_POST['server'];
-		$login = stripslashes($_POST['login']);
-		$pass = stripslashes($_POST['pass']);
-		$path = $_POST['path'];
-		$nossl = $_POST['nossl'];
-		$passive = empty($_POST['passive']) ? false : true;
+		$server = $posted_settings['server'];
+		$login = stripslashes($posted_settings['login']);
+		$pass = stripslashes($posted_settings['pass']);
+		$path = $posted_settings['path'];
+		$nossl = $posted_settings['nossl'];
+		$passive = empty($posted_settings['passive']) ? false : true;
 		
-		$disable_verify = $_POST['disableverify'];
-		$use_server_certs = $_POST['useservercerts'];
+		$disable_verify = $posted_settings['disableverify'];
+		$use_server_certs = $posted_settings['useservercerts'];
 
 		if (empty($server)) {
 			_e("Failure: No server details were given.",'updraftplus');
 			return;
 		}
 		if (empty($login)) {
-			printf(__("Failure: No %s was given.",'updraftplus'),'login');
+			printf(__("Failure: No %s was given.",'updraftplus'), __('login', 'updraftplus'));
 			return;
 		}
 		if (empty($pass)) {
-			printf(__("Failure: No %s was given.",'updraftplus'),'password');
+			printf(__("Failure: No %s was given.",'updraftplus'), __('password', 'updraftplus'));
 			return;
 		}
 
@@ -396,15 +373,15 @@ class UpdraftPlus_BackupModule_ftp {
 
 		$file = md5(rand(0,99999999)).'.tmp';
 		$fullpath = trailingslashit($path).$file;
-		if (!file_exists(ABSPATH.WPINC.'/version.php')) {
-			_e("Failure: an unexpected internal UpdraftPlus error occurred when testing the credentials - please contact the developer");
-			return;
-		}
+		
 		if ($ftp->put(ABSPATH.WPINC.'/version.php', $fullpath, FTP_BINARY, false, true)) {
-			echo __("Success: we successfully logged in, and confirmed our ability to create a file in the given directory (login type:",'updraftplus')." ".$ftp->login_type.')';
+			echo __("Success: we successfully logged in, and confirmed our ability to create a file in the given directory (login type:", 'updraftplus')." ".$ftp->login_type.')';
 			@$ftp->delete($fullpath);
 		} else {
-			_e('Failure: we successfully logged in, but were not able to create a file in the given directory.');
+			_e('Failure: we successfully logged in, but were not able to create a file in the given directory.', 'updraftplus');
+			if (!empty($ftp->ssl)) {
+				echo ' '.__('This is sometimes caused by a firewall - try turning off SSL in the expert settings, and testing again.', 'updraftplus');
+			}
 		}
 
 	}

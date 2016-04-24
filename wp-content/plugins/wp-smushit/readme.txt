@@ -1,13 +1,13 @@
-=== WP Smush ===
-Plugin Name: WP Smush
-Version: 2.2.1
+=== WP Smush - Image Optimization ===
+Plugin Name: WP Smush - Image Optimization
+Version: 2.2.2
 Author: WPMU DEV
 Author URI: http://premium.wpmudev.org/
 Contributors: WPMUDEV, alexdunae
-Tags: Attachment,Attachments,Compress,Compress Image File,Compress Image Size,Compress JPG,Compressed JPG, Compression Image,Image,Images,JPG,Optimise,Optimize,Photo,Photos,Pictures,PNG,Reduce Image Size,Smush,Smush.it,Upload,WordPress Compression,WordPress Image Tool,Yahoo, Yahoo Smush.it
+Tags: image optimization, image compression, attachment,Attachments,compress,Compress Image File,Compress Image Size,Compress JPG,Compressed JPG, Compression Image,Image,Images,JPG,Optimise,Optimize,Photo,Photos,Pictures,PNG,Reduce Image Size,Smush,Smush.it,Upload,WordPress Compression,WordPress Image Tool,Yahoo, Yahoo Smush.it
 Requires at least: 3.5
-Tested up to: 4.4.2
-Stable tag: 2.2.1
+Tested up to: 4.5
+Stable tag: 2.2.2
 License: GPL v2 - http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 
 Reduce image file sizes, improve performance and boost your SEO using the free <a href="https://premium.wpmudev.org/">WPMU DEV</a> WordPress Smush API.
@@ -87,6 +87,13 @@ Yahoo's Smush.it API is gone forever. So WPMU DEV built our own free API that is
 
 
 == Changelog ==
+
+= 2.2.2 =
+
+- Fixed: JS error causing issue with Editor on some installs, plugin conflict with CoursePress plugin, ACF ( Clear All Caches after plugin upgrade, Cloudflare as well )
+- Fixed: ReSmush count for bulk smushing
+- Fixed: Smush settings accessibility for Screen reader/Keyboard
+- Fixed: WP Admin loading slow ( Load smush stats on required admin pages only )
 
 = 2.2.1 =
 * New: Option to resmush image if settings are changed after optimising images
